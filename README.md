@@ -22,5 +22,8 @@ Documentation.config.searcher = Documentation::Searchers::Elasticsearch.new(:hos
 Once installed, you'll probably want to index all your documents.
 
 ```ruby
+# Remove any existing index
+Documentation.config.searcher.reset
+# Index all pages
 Documentation::Page.all.each(&:index)
 ```

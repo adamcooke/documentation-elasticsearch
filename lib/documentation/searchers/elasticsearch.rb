@@ -4,7 +4,7 @@ module Documentation
     
       def setup
         require 'elasticsearch'
-        @client = ::Elasticsearch::Client.new(options)
+        @client = ::Elasticsearch::Client.new(options[:client] || {})
       end
       
       def index(page)
@@ -17,6 +17,10 @@ module Documentation
         false
       end
       
+      def reset
+        @client.indices.delete(:index => index_name)
+      end
+      
       def search(query, options = {})
         result = @client.search(:index => index_name, :body => {:query => {:simple_query_string => {:query => query,  :fields => [:title, :content]}}})
         search_result = Documentation::SearchResult.new
@@ -27,12 +31,14 @@ module Documentation
           hash
         end
         search_result
+      rescue ::Elasticsearch::Transport::Transport::Errors::NotFound
+        Documentation::SearchResult.new
       end
       
       private
       
       def index_name
-        @options[:index_name] || 'pages'
+        options[:index_name] || 'pages'
       end
       
       def page_to_hash(page)

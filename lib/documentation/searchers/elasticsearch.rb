@@ -22,14 +22,38 @@ module Documentation
       end
       
       def search(query, options = {})
-        result = @client.search(:index => index_name, :body => {:query => {:simple_query_string => {:query => query,  :fields => [:title, :content]}}})
-        search_result = Documentation::SearchResult.new
-        search_result.query       = query
-        search_result.time        = result['took']
-        search_result.raw_results = result['hits']['hits'].inject(Hash.new) do |hash, hit|
+        # Default options
+        options[:page]      ||= 1
+        options[:per_page]  ||= 15
+        
+        # Prepare our query
+        body = {
+          :query => {
+            :simple_query_string => {:query => query,  :fields => [:title, :content]}
+          }
+        }
+        # Get the total number of results
+        count = @client.count(:index => index_name, :body => body)
+
+        # Get some actual results for the requested page
+        result = @client.search(:index => index_name, :body => body.merge({
+          :from => (options[:page].to_i - 1) * options[:per_page].to_i,
+          :size => options[:per_page].to_i
+        }))
+        
+        # Create a result object to be returned
+        search_result                 = Documentation::SearchResult.new
+        search_result.page            = options[:page].to_i
+        search_result.per_page        = options[:per_page].to_i
+        search_result.total_results   = count['count'].to_i
+        search_result.query           = query
+        search_result.time            = result['took']
+        search_result.raw_results     = result['hits']['hits'].inject(Hash.new) do |hash, hit|
           hash[hit['_id'].to_i] = {:score => hit['_score']}
           hash
         end
+        
+        # Return it
         search_result
       rescue ::Elasticsearch::Transport::Transport::Errors::NotFound
         Documentation::SearchResult.new

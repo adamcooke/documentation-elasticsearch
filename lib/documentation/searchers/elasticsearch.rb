@@ -4,21 +4,20 @@ module Documentation
     
       def setup
         require 'elasticsearch'
-        @client = ::Elasticsearch::Client.new(options[:client] || {})
       end
       
       def index(page)
-        @client.index(:index => index_name, :type => 'page', :id => page.id, :body => page_to_hash(page))
+        client.index(:index => index_name, :type => 'page', :id => page.id, :body => page_to_hash(page))
       end
       
       def delete(page)
-        @client.delete(:index => index_name, :type => 'page', :id => page.id)
+        client.delete(:index => index_name, :type => 'page', :id => page.id)
       rescue ::Elasticsearch::Transport::Transport::Errors::NotFound
         false
       end
       
       def reset
-        @client.indices.delete(:index => index_name)
+        client.indices.delete(:index => index_name)
       end
       
       def search(query, options = {})
@@ -33,12 +32,17 @@ module Documentation
           }
         }
         # Get the total number of results
-        count = @client.count(:index => index_name, :body => body)
+        count = client.count(:index => index_name, :body => body)
 
         # Get some actual results for the requested page
-        result = @client.search(:index => index_name, :body => body.merge({
+        result = client.search(:index => index_name, :body => body.merge({
           :from => (options[:page].to_i - 1) * options[:per_page].to_i,
-          :size => options[:per_page].to_i
+          :size => options[:per_page].to_i,
+          :highlight => {
+            :pre_tags => ["{{{"],
+            :post_tags => ["}}}"],
+            :fields => {:content => {}}
+          }
         }))
         
         # Create a result object to be returned
@@ -49,7 +53,10 @@ module Documentation
         search_result.query           = query
         search_result.time            = result['took']
         search_result.raw_results     = result['hits']['hits'].inject(Hash.new) do |hash, hit|
-          hash[hit['_id'].to_i] = {:score => hit['_score']}
+          hash[hit['_id'].to_i] = {
+            :score => hit['_score'],
+            :highlights => hit['highlight'] && hit['highlight']['content']
+          }
           hash
         end
         
@@ -75,6 +82,12 @@ module Documentation
           :created_at => page.created_at,
           :updated_at => page.updated_at
         }
+      end
+      
+      private
+      
+      def client
+        @client ||= ::Elasticsearch::Client.new(options[:client] || {})
       end
       
     end

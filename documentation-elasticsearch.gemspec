@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   
   s.files = Dir["{lib}/**/*", "MIT-LICENSE", "Rakefile", "README.rdoc"]
   
-  s.add_dependency "documentation", ">= 1.0.0", "< 2.0.0"
-  s.add_dependency 'elasticsearch', '~> 1.0.4'
+  s.add_dependency "documentation", ">= 1.0.0", "< 2.0"
+  s.add_dependency 'elasticsearch', '>= 1.0.0', "< 2.0"
   
 end
